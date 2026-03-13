@@ -1,0 +1,13 @@
+12
+insert key1 100
+insert key1 200
+insert key1 150
+insert key2 300
+find key1
+find key2
+find key3
+delete key1 150
+find key1
+delete key1 100
+delete key1 200
+find key1

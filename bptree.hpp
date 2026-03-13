@@ -90,7 +90,8 @@ private:
 
     int find_child_index(const Node& node, const KeyValue& kv) {
         int i = 0;
-        while (i < node.num_entries && kv.compare_key(node.entries[i].key) >= 0) {
+        // Go to right child if kv.key > entry.key
+        while (i < node.num_entries && kv.compare_key(node.entries[i].key) > 0) {
             i++;
         }
         return i;
@@ -161,7 +162,7 @@ private:
             if (child.num_entries >= ORDER) {
                 split_node(pos, i, node.children[i]);
                 node = read_node(pos);
-                if (kv.compare_key(node.entries[i].key) >= 0) {
+                if (kv.compare_key(node.entries[i].key) > 0) {
                     i++;
                 }
             }
@@ -224,31 +225,41 @@ public:
         int pos = root_pos;
         Node node = read_node(pos);
 
-        // Navigate to leaf
+        // Navigate to leftmost leaf that could contain the key
         while (!node.is_leaf) {
             int i = 0;
-            while (i < node.num_entries && strcmp(key, node.entries[i].key) >= 0) {
+            // Go left when key <= entry.key (to find leftmost occurrence)
+            while (i < node.num_entries && strcmp(key, node.entries[i].key) > 0) {
                 i++;
             }
             pos = node.children[i];
             node = read_node(pos);
         }
 
-        // Collect values from leaves
+        // Collect all values with matching key from leaf chain
         while (pos != -1) {
-            bool found_any = false;
+            bool found_in_this_leaf = false;
+
             for (int i = 0; i < node.num_entries; i++) {
-                if (strcmp(node.entries[i].key, key) == 0) {
+                int cmp = strcmp(node.entries[i].key, key);
+                if (cmp == 0) {
                     result.push_back(node.entries[i].value);
-                    found_any = true;
-                } else if (found_any) {
-                    break;
+                    found_in_this_leaf = true;
+                } else if (cmp > 0) {
+                    // Keys are sorted, no more matches possible
+                    sort(result.begin(), result.end());
+                    return result;
                 }
             }
 
-            if (found_any && node.next != -1) {
+            // Continue to next leaf only if we might find more matches
+            if (found_in_this_leaf || result.empty()) {
                 pos = node.next;
-                node = read_node(pos);
+                if (pos != -1) {
+                    node = read_node(pos);
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
@@ -263,26 +274,36 @@ public:
         int pos = root_pos;
         Node node = read_node(pos);
 
-        // Navigate to leaf
+        // Navigate to leftmost leaf that could contain the key
         while (!node.is_leaf) {
             int i = 0;
-            while (i < node.num_entries && strcmp(key, node.entries[i].key) >= 0) {
+            while (i < node.num_entries && strcmp(key, node.entries[i].key) > 0) {
                 i++;
             }
             pos = node.children[i];
             node = read_node(pos);
         }
 
-        // Find and remove entry
-        for (int i = 0; i < node.num_entries; i++) {
-            if (strcmp(node.entries[i].key, key) == 0 && node.entries[i].value == value) {
-                // Shift entries left
-                for (int j = i; j < node.num_entries - 1; j++) {
-                    node.entries[j] = node.entries[j + 1];
+        // Search through leaf chain
+        while (pos != -1) {
+            for (int i = 0; i < node.num_entries; i++) {
+                int cmp = strcmp(node.entries[i].key, key);
+                if (cmp == 0 && node.entries[i].value == value) {
+                    // Found it, remove
+                    for (int j = i; j < node.num_entries - 1; j++) {
+                        node.entries[j] = node.entries[j + 1];
+                    }
+                    node.num_entries--;
+                    write_node(pos, node);
+                    return;
+                } else if (cmp > 0) {
+                    // Past the key, not found
+                    return;
                 }
-                node.num_entries--;
-                write_node(pos, node);
-                return;
+            }
+            pos = node.next;
+            if (pos != -1) {
+                node = read_node(pos);
             }
         }
     }
