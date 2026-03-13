@@ -239,7 +239,6 @@ public:
         // Collect all values with matching key from leaf chain
         while (pos != -1) {
             bool found_in_this_leaf = false;
-            bool past_key = false;
 
             for (int i = 0; i < node.num_entries; i++) {
                 int cmp = strcmp(node.entries[i].key, key);
@@ -248,14 +247,13 @@ public:
                     found_in_this_leaf = true;
                 } else if (cmp > 0) {
                     // Keys are sorted, no more matches possible
-                    past_key = true;
-                    break;
+                    sort(result.begin(), result.end());
+                    return result;
                 }
             }
 
-            // Continue to next leaf only if we found matches in this leaf
-            // and haven't gone past the key yet
-            if (found_in_this_leaf && !past_key) {
+            // Continue to next leaf only if we might find more matches
+            if (found_in_this_leaf || result.empty()) {
                 pos = node.next;
                 if (pos != -1) {
                     node = read_node(pos);
