@@ -252,8 +252,18 @@ public:
                 }
             }
 
-            // Continue to next leaf only if we might find more matches
-            if (found_in_this_leaf || result.empty()) {
+            // Decision: continue to next leaf?
+            if (found_in_this_leaf) {
+                // Found matches, there might be more in next leaf
+                pos = node.next;
+                if (pos != -1) {
+                    node = read_node(pos);
+                } else {
+                    break;
+                }
+            } else if (result.empty() && node.num_entries > 0 &&
+                       strcmp(node.entries[node.num_entries - 1].key, key) < 0) {
+                // No matches yet, but last entry < key, so key might be in next leaf
                 pos = node.next;
                 if (pos != -1) {
                     node = read_node(pos);
@@ -261,6 +271,7 @@ public:
                     break;
                 }
             } else {
+                // No matches and we're past where key would be
                 break;
             }
         }
